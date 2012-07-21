@@ -1,8 +1,8 @@
 ## THIS IS A FORK (0.7.1)
 
 Changeset:
-* Support for Yandex search engine
-* Tweaked limits on keywords (20 -> 100)
+* Support for Yandex search engine;
+* Tweaked limits on keywords (20 to 100).
 
 -----------------------
 
@@ -52,11 +52,11 @@ so in order to generate the screen resolution report Visitors needs
 that you add the following code in your home page, after the <body>
 tag:
 
-	```javascript
-	<script>
-	document.write("<div style=\"visiblity:hidden;display:none;\"><img src=\"visitors-screen-res-check.jpg?"+screen.width+"x"+screen.height+"x"+screen.colorDepth+"\" /></div>");
-	</script>
-	```
+```javascript
+<script>
+document.write("<div style=\"visiblity:hidden;display:none;\"><img src=\"visitors-screen-res-check.jpg?"+screen.width+"x"+screen.height+"x"+screen.colorDepth+"\" /></div>");
+</script>
+```
 
 Without this code the screen resolution report will not work.
 
