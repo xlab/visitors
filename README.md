@@ -1,12 +1,12 @@
-## THIS IS A FORK
+## THIS IS A FORK (0.7.1)
 
 Changeset:
 * Support for Yandex search engine
-* Tweaked
+* Tweaked limits on keywords (20 -> 100)
 
+-----------------------
 
 ## WELCOME TO VISITORS 0.7
------------------------
 
 Hello, this is Visitors,
 a fast and easy to use web log analyzer.
@@ -20,7 +20,6 @@ or check the docs.html file in this directory
 for the reference documentation.
 
 ## HOW TO COMPILE
---------------
 
 Under UNIX systems just type:
 
@@ -34,7 +33,6 @@ with the exact problem, version of Visitors, environment, GCC used, and so
 on.
 
 ## HOW TO USE WITH IIS LOGS
-------------------------
 
 Use the `iis2apache.pl` perl script to do the conversion, like:
 
@@ -48,7 +46,6 @@ This program is called RConvLog and it's possible to
 download it at http://www.rebex.net/RConvLog/
 
 ## HOW TO GET SCREEN RESOLUTION INFORMATION
-----------------------------------------
 
 Log files don't contain information about the screen resolution
 so in order to generate the screen resolution report Visitors needs
@@ -64,12 +61,10 @@ tag:
 Without this code the screen resolution report will not work.
 
 ## HOW TO HELP
------------
 
 Please send patches, I'll merge it, but be aware the project is now licensed under the BSD license, it's no longer GPLed.
 
 ## THANKS TO ...
--------------
 
 Please see the ChangeLog file for credits.
 
