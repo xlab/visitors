@@ -896,6 +896,7 @@ struct vih *vi_new(void)
 	vih->error = NULL;
 	vi_ht_init(&vih->visitors);
 	vi_ht_init(&vih->googlevisitors);
+	vi_ht_init(&vih->yandexvisitors);
 	vi_ht_init(&vih->pages);
 	vi_ht_init(&vih->images);
 	vi_ht_init(&vih->error404);
@@ -905,10 +906,14 @@ struct vih *vi_new(void)
 	vi_ht_init(&vih->referersage);
 	vi_ht_init(&vih->agents);
 	vi_ht_init(&vih->googled);
+	vi_ht_init(&vih->yandexed);
 	vi_ht_init(&vih->adsensed);
 	vi_ht_init(&vih->googlevisits);
 	vi_ht_init(&vih->googlekeyphrases);
 	vi_ht_init(&vih->googlekeyphrasesage);
+	vi_ht_init(&vih->yandexvisits);
+	vi_ht_init(&vih->yandexkeyphrases);
+	vi_ht_init(&vih->yandexkeyphrasesage);
 	vi_ht_init(&vih->trails);
 	vi_ht_init(&vih->tld);
 	vi_ht_init(&vih->os);
@@ -917,6 +922,8 @@ struct vih *vi_new(void)
 	vi_ht_init(&vih->month);
 	vi_ht_init(&vih->googledate);
 	vi_ht_init(&vih->googlemonth);
+	vi_ht_init(&vih->yandexdate);
+	vi_ht_init(&vih->yandexmonth);
 	vi_ht_init(&vih->robots);
 	vi_ht_init(&vih->googlehumanlanguage);
 	vi_ht_init(&vih->screenres);
