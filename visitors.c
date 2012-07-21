@@ -1,6 +1,7 @@
 /* visitors -- very fast web logs analyzer.
  *
  * Copyright (C) 2004-2006 Salvatore Sanfilippo <antirez@invece.org>
+ * Yandex.ru support implemented by Xlab in 2012 <me@kc.vc>
  * All Rights Reserved.
  *
  * This software is released under the terms of the BSD license.
@@ -32,10 +33,10 @@
 #define VI_GREP_PATTERNS_MAX 1024
 /* Abbreviation length for HTML outputs */
 #define VI_HTML_ABBR_LEN 100
-/* Version as a string */
+ /* Max length of a log entry date */
 #define VI_DATE_MAX 64
-/* Max length of a log entry date */
-#define VI_VERSION_STR "0.7"
+/* Version as a string */
+#define VI_VERSION_STR "0.7.1"
 
 /*------------------------------- data structures ----------------------------*/
 
@@ -52,6 +53,7 @@ struct vih {
 	int monthday[12][31]; /* month and day combined data */
 	struct hashtable visitors;
 	struct hashtable googlevisitors;
+	struct hashtable yandexvisitors;
 	struct hashtable pages;
 	struct hashtable images;
 	struct hashtable error404;
@@ -61,14 +63,20 @@ struct vih {
 	struct hashtable referersage;
 	struct hashtable date;
 	struct hashtable googledate;
+	struct hashtable yandexdate;
         struct hashtable adsensed;
 	struct hashtable month;
 	struct hashtable googlemonth;
+	struct hashtable yandexmonth;
 	struct hashtable agents;
 	struct hashtable googled;
 	struct hashtable googlevisits;
 	struct hashtable googlekeyphrases;
 	struct hashtable googlekeyphrasesage;
+	struct hashtable yandexed;
+	struct hashtable yandexvisits;
+	struct hashtable yandexkeyphrases;
+	struct hashtable yandexkeyphrasesage;
 	struct hashtable trails;
 	struct hashtable tld;
 	struct hashtable os;
@@ -139,8 +147,11 @@ int Config_max_error404 = 20;
 int Config_max_agents = 20;
 int Config_max_googled = 20;
 int Config_max_adsensed = 20;
+int Config_max_yandexed = 20;
 int Config_max_google_keyphrases = 20;
 int Config_max_google_keyphrases_age = 20;
+int Config_max_yandex_keyphrases = 20;
+int Config_max_yandex_keyphrases_age = 20;
 int Config_max_trails = 20;
 int Config_max_tld = 20;
 int Config_max_robots = 20;
@@ -149,6 +160,10 @@ int Config_process_google = 0;
 int Config_process_google_keyphrases = 0;
 int Config_process_google_keyphrases_age = 0;
 int Config_process_google_human_language = 0;
+int Config_process_yandex = 0;
+int Config_process_yandex_keyphrases = 0;
+int Config_process_yandex_keyphrases_age = 0;
+
 int Config_process_web_trails = 0;
 int Config_process_weekdayhour_map = 0;
 int Config_process_monthday_map = 0;
@@ -163,6 +178,7 @@ int Config_process_robots = 0;
 int Config_process_screen_info = 0;
 int Config_graphviz_mode = 0;
 int Config_graphviz_ignorenode_google = 0;
+int Config_graphviz_ignorenode_yandex = 0;
 int Config_graphviz_ignorenode_external = 0;
 int Config_graphviz_ignorenode_noreferer = 0;
 int Config_tail_mode = 0;
@@ -222,10 +238,22 @@ int vi_is_google_link(char *s)
 	return !strncmp(s, "http://www.google.", 18);
 }
 
+int vi_is_yandex_link(char *s)
+{
+	return !strncmp(s, "http://yandex.", 14);
+}
+
 /* Returns non-zero if the user agent appears to be the GoogleBot. */
 int vi_is_googlebot_agent(char *agent) {
 	if (strstr(agent, "Googlebot") ||
             strstr(agent, "googlebot")) return 1;
+        return 0;
+}
+
+/* Returns non-zero if the user agent appears to be the YandexBot. */
+int vi_is_yandexbot_agent(char *agent) {
+	if (strstr(agent, "Yandexbot") ||
+            strstr(agent, "YandexBot")) return 1;
         return 0;
 }
 
@@ -807,6 +835,7 @@ void vi_reset_hashtables(struct vih *vih)
 {
 	ht_destroy(&vih->visitors);
 	ht_destroy(&vih->googlevisitors);
+	ht_destroy(&vih->yandexvisitors);
 	ht_destroy(&vih->pages);
 	ht_destroy(&vih->images);
 	ht_destroy(&vih->error404);
@@ -816,18 +845,24 @@ void vi_reset_hashtables(struct vih *vih)
 	ht_destroy(&vih->referersage);
 	ht_destroy(&vih->agents);
 	ht_destroy(&vih->googled);
+	ht_destroy(&vih->yandexed);
 	ht_destroy(&vih->adsensed);
 	ht_destroy(&vih->googlekeyphrases);
 	ht_destroy(&vih->googlekeyphrasesage);
 	ht_destroy(&vih->googlevisits);
+	ht_destroy(&vih->yandexkeyphrases);
+	ht_destroy(&vih->yandexkeyphrasesage);
+	ht_destroy(&vih->yandexvisits);
 	ht_destroy(&vih->trails);
 	ht_destroy(&vih->tld);
 	ht_destroy(&vih->os);
 	ht_destroy(&vih->browsers);
 	ht_destroy(&vih->date);
 	ht_destroy(&vih->googledate);
+	ht_destroy(&vih->yandexdate);
 	ht_destroy(&vih->month);
 	ht_destroy(&vih->googlemonth);
+	ht_destroy(&vih->yandexmonth);
 	ht_destroy(&vih->robots);
 	ht_destroy(&vih->googlehumanlanguage);
 	ht_destroy(&vih->screenres);
@@ -1291,6 +1326,22 @@ int vi_process_visitors_per_day(struct vih *vih, char *host, char *agent, char *
 			}
 		}
 	}
+
+    /* Visits with Yandex as referer are also stored in another hash
+     * table. */
+    if (vi_is_yandex_link(ref)) {
+    	res = vi_counter_incr(&vih->yandexvisitors, visday);
+    	if (res == 0) return 1; /* out of memory */
+    	if (res == 1) { /* new visit! */
+    		res = vi_counter_incr(&vih->yandexdate, date);
+    		if (res == 0) return 1; /* out of memory */
+    		if (Config_process_monthly_visitors) {
+    			res = vi_counter_incr(&vih->yandexmonth, month);
+    			if (res == 0) return 1; /* out of memory */
+    		}
+    	}
+    }
+
 	/* Populate the 'pageviews per visitor' hash table */
 	if (Config_process_pageviews && vi_is_pageview(req)) {
 		res = vi_counter_incr(&vih->pageviews, visday);
@@ -1329,6 +1380,8 @@ int vi_process_referer(struct vih *vih, char *ref, time_t age)
 		return !vi_counter_incr(&vih->referers, "Internal Link");
 	if (vi_is_google_link(ref))
 		return !vi_counter_incr(&vih->referers, "Google Search Engine");
+	if (vi_is_yandex_link(ref))
+		return !vi_counter_incr(&vih->referers, "Yandex Search Engine");
 	res = vi_counter_incr(&vih->referers, ref);
 	if (res == 0) return 1;
 	/* Process the referers age if enabled */
@@ -1436,6 +1489,10 @@ int vi_process_browsers(struct vih *vih, char *agent)
 		"MSIE 5", "Explorer 5.x",
 		"MSIE 6", "Explorer 6.x",
 		"MSIE 7", "Explorer 7.x",
+		"MSIE 8", "Explorer 8.x",
+		"MSIE 9", "Explorer 9.x",
+		"MSIE 10", "Explorer 10.x",
+		"MSIE 11", "Explorer 11.x", // Marty was here
 		"MSIE", "Explorer unknown version",
 		"Safari", NULL,
 		"Konqueror", NULL,
@@ -1463,12 +1520,14 @@ int vi_process_browsers(struct vih *vih, char *agent)
 		"NSPlayer", NULL,
 		"Googlebot", "GoogleBot",
 		"googlebot", "GoogleBot",
+		"yandexbot", "YandexBot",
+		"YandexBot", "YandexBot",
+		"Yandex", "YandexBot",
 		"yacybot", "YaCy-Bot",
 		"Sogou", "Sogou.com Bot",
 		"psbot", "Picsearch.com Bot",
 		"sosospider", "Soso.com Bot",
 		"Baiduspider+", "Baidu.com Bot",
-		"Yandex", "Yandex.com Bot",
 		"Yeti", "Nava.com Bot",
 		"APT-HTTP", "Apt",
 		"git", "Git",
@@ -1486,6 +1545,16 @@ int vi_process_googled(struct vih *vih, char *req, char *agent, time_t age)
 	    return vi_replace_if_newer(&vih->googled, req, age);
         } else if (vi_is_adsensebot_agent(agent)) {
 	    return vi_replace_if_newer(&vih->adsensed, req, age);
+        }
+        return 0;
+}
+
+/* Process req/agents to get information about pages retrivied by Yandex.
+ * Return non-zero on out of memory. */
+int vi_process_yandexed(struct vih *vih, char *req, char *agent, time_t age)
+{
+        if (vi_is_yandexbot_agent(agent)) {
+	    return vi_replace_if_newer(&vih->yandexed, req, age);
         }
         return 0;
 }
@@ -1571,6 +1640,40 @@ int vi_process_google_keyphrases(struct vih *vih, char *ref, time_t age)
 	return 0;
 }
 
+/* Process accesses with the referer from yandex.
+ * This is used to populate the keyphrases hashtable.
+ * TODO: url decoding */
+int vi_process_yandex_keyphrases(struct vih *vih, char *ref, time_t age)
+{
+	char *s, *p, *e;
+	int res;
+	char urldecoded[VI_LINE_MAX];
+	char buf[64];
+    
+	if (!vi_is_yandex_link(ref)) return 0;
+    
+	if ((s = strstr(ref+14, "?text=")) == NULL &&
+	    (s = strstr(ref+14, "&text=")) == NULL) return 0;
+	if ((p = strstr(ref+14, "&text=")) == NULL)
+		p = strstr(ref+14, "?text=");
+	if ((e = strchr(s+6, '&')) != NULL)
+		*e = '\0';
+    
+	vi_urldecode(urldecoded, s+6, VI_LINE_MAX);
+	vi_strtolower(urldecoded);
+	buf[63] = '\0';
+	//vi_strlcat(urldecoded, buf, VI_LINE_MAX);
+	res = vi_counter_incr(&vih->yandexkeyphrases, urldecoded);
+	if (e) *e = '&';
+	if (res == 0) return 1;
+	/* Process keyphrases by first time */
+	if (Config_process_yandex_keyphrases_age) {
+		if (vi_replace_if_older(&vih->yandexkeyphrasesage,
+                                urldecoded, age)) return 1;
+	}
+	return 0;
+}
+
 /* Process robots information. For visitors every client accessing
  * to robots.txt is considered a robot.
  * Returns 1 on out of memory, otherwise zero is returned. */
@@ -1584,18 +1687,22 @@ int vi_process_robots(struct vih *vih, char *req, char *agent)
 /* Process referer -> request pairs for web trails */
 int vi_process_web_trails(struct vih *vih, char *ref, char *req)
 {
-	int res, plen, google;
+	int res, plen, google, yandex;
 	char buf[VI_LINE_MAX];
 	char *src;
 
 	if (vi_is_image(req)) return 0;
 	plen = vi_is_internal_link(ref);
 	google = vi_is_google_link(ref);
+	yandex = vi_is_yandex_link(ref);
 	if (plen) {
 		src = (ref[plen] == '\0') ? "/" : ref+plen;
 	} else if (google) {
 		if (Config_graphviz_ignorenode_google) return 0;
 		src = "Google";
+	} else if (yandex) {
+		if (Config_graphviz_ignorenode_yandex) return 0;
+		src = "Yandex";
 	} else if (ref[0] != '\0') {
 		if (Config_graphviz_ignorenode_external) return 0;
 		src = "External Link";
@@ -1707,10 +1814,16 @@ int vi_process_line(struct vih *vih, char *l)
 		if (Config_process_google &&
 		    vi_process_googled(vih, ll.req, ll.agent, ll.time))
 			goto oom;
+		if (Config_process_yandex &&
+		    vi_process_yandexed(vih, ll.req, ll.agent, ll.time))
+			goto oom;
 		if (Config_process_web_trails &&
 		    vi_process_web_trails(vih, ll.ref, ll.req)) goto oom;
 		if (Config_process_google_keyphrases &&
 		    vi_process_google_keyphrases(vih, ll.ref, ll.time))
+			goto oom;
+		if (Config_process_yandex_keyphrases &&
+		    vi_process_yandex_keyphrases(vih, ll.ref, ll.time))
 			goto oom;
 
 		/* The following are processed only for new visits */
@@ -2590,6 +2703,65 @@ void vi_print_googlevisits_report(FILE *fp, struct vih *vih)
 	free(table);
 }
 
+/* A report to compare visits originating from yandex VS all the rest. */
+void vi_print_yandexvisits_report(FILE *fp, struct vih *vih)
+{
+	int days = ht_used(&vih->date), i, months;
+	void **table;
+    
+	Output->print_title(fp, "Unique visitors from Yandex in each day");
+	Output->print_subtitle(fp, "The red part of the bar expresses the percentage of visits originated from Yandex");
+	Output->print_numkey_info(fp, "Number of unique visitors",
+                              ht_used(&vih->visitors));
+	Output->print_numkey_info(fp, "Number of unique visitors from yandex",
+                              ht_used(&vih->yandexvisitors));
+	Output->print_numkey_info(fp, "Different days in logfile",
+                              ht_used(&vih->date));
+	
+	if ((table = ht_get_array(&vih->date)) == NULL) {
+		fprintf(stderr, "Out Of Memory in print_visits_report()\n");
+		return;
+	}
+	qsort(table, days, sizeof(void*)*2, qsort_cmp_dates_key);
+	for (i = 0; i < days; i++) {
+		char *key = table[i*2];
+		long value = (long) table[(i*2)+1];
+		long yandexvalue;
+        
+		yandexvalue = vi_counter_val(&vih->yandexdate, key);
+		Output->print_numkeycomparativebar_entry(fp, key, value, yandexvalue);
+	}
+	free(table);
+    Output->print_hline(fp);
+    
+	/* Montly */
+	if (Config_process_monthly_visitors == 0) return;
+	months = ht_used(&vih->month);
+	Output->print_title(fp, "Unique visitors from Yandex in each month");
+	Output->print_subtitle(fp, "The red part of the bar expresses the percentage of visits originated from Yandex");
+	Output->print_numkey_info(fp, "Number of unique visitors",
+                              ht_used(&vih->visitors));
+	Output->print_numkey_info(fp, "Number of unique visitors from yandex",
+                              ht_used(&vih->yandexvisitors));
+	Output->print_numkey_info(fp, "Different months in logfile",
+                              ht_used(&vih->month));
+	
+	if ((table = ht_get_array(&vih->month)) == NULL) {
+		fprintf(stderr, "Out Of Memory in print_visits_report()\n");
+		return;
+	}
+	qsort(table, months, sizeof(void*)*2, qsort_cmp_months_key);
+	for (i = 0; i < months; i++) {
+		char *key = table[i*2];
+		long value = (long) table[(i*2)+1];
+		long yandexvalue;
+        
+		yandexvalue = vi_counter_val(&vih->yandexmonth, key);
+		Output->print_numkeycomparativebar_entry(fp, key, value, yandexvalue);
+	}
+	free(table);
+}
+
 void vi_print_generic_keyval_report(FILE *fp, char *title, char *subtitle,
 		char *info, int maxlines,
 		struct hashtable *ht,
@@ -2698,12 +2870,56 @@ void vi_print_keyphrases_report(FILE *fp, char *title, char *subtitle,
 	free(table);
 }
 
+void vi_print_keyphrases_report_yandex(FILE *fp, char *title, char *subtitle,
+                                char *info, int maxlines,
+                                struct hashtable *ht,
+                                int(*compar)(const void *, const void *))
+{
+	int items = ht_used(ht), i;
+	void **table;
+    
+	Output->print_title(fp, title);
+	Output->print_subtitle(fp, subtitle);
+	Output->print_numkey_info(fp, info, items);
+	if ((table = ht_get_array(ht)) == NULL) {
+		fprintf(stderr, "Out of memory in print_keyphrases_report()\n");
+		return;
+	}
+	qsort(table, items, sizeof(void*)*2, compar);
+	for (i = 0; i < items; i++) {
+		char *key = table[i*2];
+		long value = (long) table[(i*2)+1];
+		if (i >= maxlines) break;
+		if (key[0] == '\0')
+			Output->print_numkey_entry(fp, "none", value, NULL,
+                                       i+1);
+		else {
+			char *p;
+			char link[VI_LINE_MAX];
+			char aux[VI_LINE_MAX];
+			char encodedkey[VI_LINE_MAX];
+            
+			vi_strlcpy(link, "http://yandex.", VI_LINE_MAX);
+			vi_strlcpy(aux, key, VI_LINE_MAX);
+			p = strrchr(aux, '(');
+			if (p) {
+				if (p > aux) p--; /* seek the space on left */
+				*p = '\0';
+			}
+			vi_urlencode(encodedkey, aux, VI_LINE_MAX);
+			vi_strlcat(link, encodedkey, VI_LINE_MAX);
+			Output->print_numkey_entry(fp, key, value, link, i+1);
+		}
+	}
+	free(table);
+}
+
 void vi_print_referers_report(FILE *fp, struct vih *vih)
 {
 	vi_print_generic_keyval_report(
 			fp,
 			"Referers",
-			"Referers ordered by visits (google excluded)",
+			"Referers ordered by visits (google/yandex excluded)",
 			"Different referers",
 			Config_max_referers,
 			&vih->referers,
@@ -2818,6 +3034,18 @@ void vi_print_google_keyphrases_report(FILE *fp, struct vih *vih)
 			qsort_cmp_long_value);
 }
 
+void vi_print_yandex_keyphrases_report(FILE *fp, struct vih *vih)
+{
+	vi_print_keyphrases_report(
+			fp,
+			"Yandex Keyphrases",
+			"Keyphrases used in yandex searches ordered by visits",
+			"Total number of keyphrases",
+			Config_max_yandex_keyphrases,
+			&vih->yandexkeyphrases,
+			qsort_cmp_long_value);
+}
+
 void vi_print_tld_report(FILE *fp, struct vih *vih)
 {
 	vi_print_generic_keyvalbar_report(
@@ -2890,6 +3118,18 @@ void vi_print_googled_report(FILE *fp, struct vih *vih)
 			qsort_cmp_time_value);
 }
 
+void vi_print_yandexed_report(FILE *fp, struct vih *vih)
+{
+	vi_print_generic_keytime_report(
+			fp,
+			"Yandexed pages",
+			"Pages accessed by the Yandex crawler, last access reported",
+			"Number of pages googled",
+			Config_max_yandexed,
+			&vih->yandexed,
+			qsort_cmp_time_value);
+}
+
 void vi_print_adsensed_report(FILE *fp, struct vih *vih)
 {
 	vi_print_generic_keytime_report(
@@ -2923,6 +3163,18 @@ void vi_print_google_keyphrases_age_report(FILE *fp, struct vih *vih)
 			"Different referers",
 			Config_max_google_keyphrases_age,
 			&vih->googlekeyphrasesage,
+			qsort_cmp_time_value);
+}
+
+void vi_print_yandex_keyphrases_age_report(FILE *fp, struct vih *vih)
+{
+	vi_print_generic_keytime_report(
+			fp,
+			"Yandex Keyphrases by first time",
+			"Keyphrases ordered by first time date, newer on top",
+			"Different referers",
+			Config_max_yandex_keyphrases_age,
+			&vih->yandexkeyphrasesage,
 			qsort_cmp_time_value);
 }
 
@@ -2980,6 +3232,8 @@ void vi_print_report_links(FILE *fp)
 	"Unique visitors in each month", &Config_process_monthly_visitors,
 	"Unique visitors from Google in each day", NULL,
 	"Unique visitors from Google in each month", &Config_process_monthly_visitors,
+	"Unique visitors from Yandex in each day", NULL,
+	"Unique visitors from Yandex in each month", &Config_process_monthly_visitors,
 	"Pageviews per visit", &Config_process_pageviews,
 	"Weekday-Hour combined map", &Config_process_weekdayhour_map,
 	"Month-Day combined map", &Config_process_monthday_map,
@@ -2997,6 +3251,8 @@ void vi_print_report_links(FILE *fp)
 	"Adsensed pages", &Config_process_google,
 	"Google Keyphrases", &Config_process_google_keyphrases,
 	"Google Keyphrases by first time", &Config_process_google_keyphrases_age,
+	"Yandex Keyphrases", &Config_process_yandex_keyphrases,
+	"Yandex Keyphrases by first time", &Config_process_yandex_keyphrases_age,
 	"Google Human Language", &Config_process_google_human_language,
         "Screen resolution", &Config_process_screen_info,
         "Screen color depth", &Config_process_screen_info,
@@ -3142,6 +3398,7 @@ int vi_print_report(char *of, struct vih *vih)
 	vi_print_visits_report(fp, vih);
 	vi_print_hline(fp);
 	vi_print_googlevisits_report(fp, vih);
+	vi_print_yandexvisits_report(fp, vih);
 	vi_print_hline(fp);
 	if (Config_process_weekdayhour_map) {
 		vi_print_weekdayhour_map_report(fp, vih);
@@ -3195,12 +3452,20 @@ int vi_print_report(char *of, struct vih *vih)
 		vi_print_adsensed_report(fp, vih);
 		vi_print_hline(fp);
 	}
-	if (Config_process_google_keyphrases) {
-		vi_print_google_keyphrases_report(fp, vih);
+	if (Config_process_yandex) {
+		vi_print_yandexed_report(fp, vih);
 		vi_print_hline(fp);
 	}
 	if (Config_process_google_keyphrases) {
+		vi_print_google_keyphrases_report(fp, vih);
+		vi_print_hline(fp);
 		vi_print_google_keyphrases_age_report(fp, vih);
+		vi_print_hline(fp);
+	}
+	if (Config_process_yandex_keyphrases) {
+		vi_print_yandex_keyphrases_report(fp, vih);
+		vi_print_hline(fp);
+		vi_print_yandex_keyphrases_age_report(fp, vih);
 		vi_print_hline(fp);
 	}
         if (Config_process_google_human_language) {
@@ -3268,6 +3533,8 @@ void vi_print_graphviz(struct vih *vih)
 	}
 	if (!Config_graphviz_ignorenode_google)
 		printf("\tGoogle [color=\"#c0ffc0\"]\n");
+	if (!Config_graphviz_ignorenode_yandex)
+		printf("\tYandex [color=\"#c0ffc0\"]\n");
 	if (!Config_graphviz_ignorenode_external)
 		printf("\t\"External Link\" [color=\"#c0ffc0\"]\n");
 	if (!Config_graphviz_ignorenode_noreferer)
@@ -3313,7 +3580,7 @@ void vi_stream_mode(struct vih *vih)
 /* ----------------------------------- main --------------------------------- */
 
 /* command line switche IDs */
-enum { OPT_MAXREFERERS, OPT_MAXPAGES, OPT_MAXIMAGES, OPT_USERAGENTS, OPT_ALL, OPT_MAXLINES, OPT_GOOGLE, OPT_MAXGOOGLED, OPT_MAXUSERAGENTS, OPT_OUTPUT, OPT_VERSION, OPT_HELP, OPT_PREFIX, OPT_TRAILS, OPT_GOOGLEKEYPHRASES, OPT_GOOGLEKEYPHRASESAGE, OPT_MAXGOOGLEKEYPHRASES, OPT_MAXGOOGLEKEYPHRASESAGE, OPT_MAXTRAILS, OPT_GRAPHVIZ, OPT_WEEKDAYHOUR_MAP, OPT_MONTHDAY_MAP, OPT_REFERERSAGE, OPT_MAXREFERERSAGE, OPT_TAIL, OPT_TLD, OPT_MAXTLD, OPT_STREAM, OPT_OUTPUTFILE, OPT_UPDATEEVERY, OPT_RESETEVERY, OPT_OS, OPT_BROWSERS, OPT_ERROR404, OPT_MAXERROR404, OPT_TIMEDELTA, OPT_PAGEVIEWS, OPT_ROBOTS, OPT_MAXROBOTS, OPT_GRAPHVIZ_ignorenode_GOOGLE, OPT_GRAPHVIZ_ignorenode_EXTERNAL, OPT_GRAPHVIZ_ignorenode_NOREFERER, OPT_GOOGLEHUMANLANGUAGE, OPT_FILTERSPAM, OPT_MAXADSENSED, OPT_GREP, OPT_EXCLUDE, OPT_IGNORE404, OPT_DEBUG, OPT_SCREENINFO};
+enum { OPT_MAXREFERERS, OPT_MAXPAGES, OPT_MAXIMAGES, OPT_USERAGENTS, OPT_ALL, OPT_MAXLINES, OPT_GOOGLE, OPT_YANDEX, OPT_MAXGOOGLED, OPT_MAXYANDEXED, OPT_MAXUSERAGENTS, OPT_OUTPUT, OPT_VERSION, OPT_HELP, OPT_PREFIX, OPT_TRAILS, OPT_GOOGLEKEYPHRASES, OPT_GOOGLEKEYPHRASESAGE, OPT_MAXGOOGLEKEYPHRASES, OPT_MAXGOOGLEKEYPHRASESAGE, OPT_YANDEXKEYPHRASES, OPT_YANDEXKEYPHRASESAGE, OPT_MAXYANDEXKEYPHRASES, OPT_MAXYANDEXKEYPHRASESAGE,OPT_MAXTRAILS, OPT_GRAPHVIZ, OPT_WEEKDAYHOUR_MAP, OPT_MONTHDAY_MAP, OPT_REFERERSAGE, OPT_MAXREFERERSAGE, OPT_TAIL, OPT_TLD, OPT_MAXTLD, OPT_STREAM, OPT_OUTPUTFILE, OPT_UPDATEEVERY, OPT_RESETEVERY, OPT_OS, OPT_BROWSERS, OPT_ERROR404, OPT_MAXERROR404, OPT_TIMEDELTA, OPT_PAGEVIEWS, OPT_ROBOTS, OPT_MAXROBOTS, OPT_GRAPHVIZ_ignorenode_GOOGLE, OPT_GRAPHVIZ_ignorenode_YANDEX, OPT_GRAPHVIZ_ignorenode_EXTERNAL, OPT_GRAPHVIZ_ignorenode_NOREFERER, OPT_GOOGLEHUMANLANGUAGE, OPT_FILTERSPAM, OPT_MAXADSENSED, OPT_GREP, OPT_EXCLUDE, OPT_IGNORE404, OPT_DEBUG, OPT_SCREENINFO};
 
 /* command line switches definition:
  * the rule with short options is to take upper case the
@@ -3324,6 +3591,9 @@ static struct ago_optlist visitors_optlist[] = {
 	{ 'G',	"google",		OPT_GOOGLE,		AGO_NOARG},
 	{ 'K',	"google-keyphrases",	OPT_GOOGLEKEYPHRASES,	AGO_NOARG},
 	{ 'Z',	"google-keyphrases-age", OPT_GOOGLEKEYPHRASESAGE, AGO_NOARG},
+	{ 'X',	"yandex",		OPT_YANDEX,		AGO_NOARG},
+	{ 'V',	"yandex-keyphrases",	OPT_YANDEXKEYPHRASES,	AGO_NOARG},
+	{ 'P',	"yandex-keyphrases-age", OPT_YANDEXKEYPHRASESAGE, AGO_NOARG},
         { 'H',  "google-human-language", OPT_GOOGLEHUMANLANGUAGE, AGO_NOARG},
 	{ 'U',	"user-agents",		OPT_USERAGENTS,		AGO_NOARG},
 	{ 'W',  "weekday-hour-map",	OPT_WEEKDAYHOUR_MAP,	AGO_NOARG},
@@ -3332,7 +3602,7 @@ static struct ago_optlist visitors_optlist[] = {
 	{ 'D',  "domains",		OPT_TLD,		AGO_NOARG},
 	{ 'O',  "operating-systems",	OPT_OS,			AGO_NOARG},
 	{ 'B',  "browsers",		OPT_BROWSERS,		AGO_NOARG},
-	{ 'X',  "error404",		OPT_ERROR404,		AGO_NOARG},
+	{ 'E',  "error404",		OPT_ERROR404,		AGO_NOARG},
 	{ 'Y',  "pageviews",		OPT_PAGEVIEWS,		AGO_NOARG},
 	{ 'S',	"robots",		OPT_ROBOTS,		AGO_NOARG},
 	{ '\0',	"screen-info",		OPT_SCREENINFO,		AGO_NOARG},
@@ -3351,6 +3621,10 @@ static struct ago_optlist visitors_optlist[] = {
 	{ '\0',	"max-adsensed",		OPT_MAXADSENSED,	AGO_NEEDARG},
 	{ 'k',	"max-google-keyphrases",OPT_MAXGOOGLEKEYPHRASES,AGO_NEEDARG},
 	{ 'z',	"max-google-keyphrases-age",OPT_MAXGOOGLEKEYPHRASESAGE,
+		AGO_NEEDARG},
+	{ 'y',	"max-yandexed",		OPT_MAXYANDEXED,		AGO_NEEDARG},
+	{ 'x',	"max-yandex-keyphrases",OPT_MAXYANDEXKEYPHRASES,AGO_NEEDARG},
+	{ '\0',	"max-yandex-keyphrases-age",OPT_MAXYANDEXKEYPHRASESAGE,
 		AGO_NEEDARG},
 	{ 'a',	"max-referers-age",	OPT_MAXREFERERSAGE,	AGO_NEEDARG},
 	{ 'd',	"max-domains",		OPT_MAXTLD,		AGO_NEEDARG},
@@ -3395,7 +3669,8 @@ void visitors_show_help(void)
 	}
         printf("\nNOTE: --filter-spam can be *very* slow. Use with care.\n\n");
 	printf("For more information visit http://www.hping.org/visitors\n"
-	       "Visitors is Copyright(C) 2004-2006 Salvatore Sanfilippo <antirez@invece.org>\n");
+	       "Visitors is Copyright(C) 2004-2006 Salvatore Sanfilippo <antirez@invece.org>\n"
+	       "Yandex.ru support implemented by Xlab in 2012 <me@kc.vc>\n");
 }
 
 int main(int argc, char **argv)
@@ -3452,6 +3727,15 @@ int main(int argc, char **argv)
 		case OPT_MAXGOOGLEKEYPHRASESAGE:
 			Config_max_google_keyphrases_age = atoi(ago_optarg);
 			break;
+		case OPT_MAXYANDEXED:
+			Config_max_yandexed = atoi(ago_optarg);
+			break;
+		case OPT_MAXYANDEXKEYPHRASES:
+			Config_max_yandex_keyphrases = atoi(ago_optarg);
+			break;
+		case OPT_MAXYANDEXKEYPHRASESAGE:
+			Config_max_yandex_keyphrases_age = atoi(ago_optarg);
+			break;
 		case OPT_MAXREFERERSAGE:
 			Config_max_referers_age = atoi(ago_optarg);
 			break;
@@ -3473,6 +3757,15 @@ int main(int argc, char **argv)
 		case OPT_GOOGLEKEYPHRASESAGE:
 			Config_process_google_keyphrases_age = 1;
 			break;
+		case OPT_YANDEX:
+			Config_process_yandex = 1;
+			break;
+		case OPT_YANDEXKEYPHRASES:
+			Config_process_yandex_keyphrases = 1;
+			break;
+		case OPT_YANDEXKEYPHRASESAGE:
+			Config_process_yandex_keyphrases_age = 1;
+			break;	
 		case OPT_GOOGLEHUMANLANGUAGE:
                         Config_process_google_keyphrases = 1;
 			Config_process_google_human_language = 1;
@@ -3500,6 +3793,9 @@ int main(int argc, char **argv)
 			Config_process_google = 1;
 			Config_process_google_keyphrases = 1;
 			Config_process_google_keyphrases_age = 1;
+			Config_process_yandex = 1;
+			Config_process_yandex_keyphrases = 1;
+			Config_process_yandex_keyphrases_age = 1;
 			Config_process_google_human_language = 1;
 			Config_process_weekdayhour_map = 1;
 			Config_process_monthday_map = 1;
@@ -3538,6 +3834,8 @@ int main(int argc, char **argv)
 				Config_max_trails = aux;
 				Config_max_google_keyphrases = aux;
 				Config_max_google_keyphrases_age = aux;
+				Config_max_yandex_keyphrases = aux;
+				Config_max_yandex_keyphrases_age = aux;
 				Config_max_referers_age = aux;
 				Config_max_tld = aux;
 				Config_max_robots = aux;
@@ -3560,6 +3858,9 @@ int main(int argc, char **argv)
 			break;
 		case OPT_GRAPHVIZ_ignorenode_GOOGLE:
 			Config_graphviz_ignorenode_google = 1;
+			break;
+		case OPT_GRAPHVIZ_ignorenode_YANDEX:
+			Config_graphviz_ignorenode_yandex = 1;
 			break;
 		case OPT_GRAPHVIZ_ignorenode_EXTERNAL:
 			Config_graphviz_ignorenode_external= 1;
