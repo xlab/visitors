@@ -1464,6 +1464,15 @@ int vi_process_os(struct vih *vih, char *agent)
 {
 	/* Order may matter. */
 	char *oslist[] = {
+		"Android", NULL,
+		"BlackBerry", NULL,
+		"MIDP-2.0; U; Adr", "Android",
+		"iPhone", "iOS (iPhone/iPad/iPod)",
+		"iPad", "iOS (iPhone/iPad/iPod)",
+		"iPod", "iOS (iPhone/iPad/iPod)",
+		"Symbian", NULL,
+		"Series 60", "Symbian",
+		"Windows Phone OS", "Windows Phone",
 		"Windows", NULL,
 		"Win98", "Windows",
 		"Win95", "Windows",
@@ -1471,8 +1480,10 @@ int vi_process_os(struct vih *vih, char *agent)
 		"Win32", "Windows",
 		"Linux", NULL,
 		"-linux-", "Linux",
+		"Ubuntu", "Linux",
 		"Macintosh", NULL,
 		"Mac_PowerPC", "Macintosh",
+		"Darwin", "Macintosh",
 		"SunOS", NULL,
 		"FreeBSD", NULL,
 		"OpenBSD", NULL,
