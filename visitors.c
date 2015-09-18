@@ -2363,7 +2363,7 @@ void om_html_print_numkey_entry(FILE *fp, char *key, int val, char *link,
 {
 	fprintf(fp, "<tr><td align=\"left\" class=\"keyentry\">");
 	fprintf(fp, "%d)", num);
-	fprintf(fp, "<td align=\"left\" class=\"valueentry\">");
+	fprintf(fp, "</td><td align=\"left\" class=\"valueentry\">");
 	fprintf(fp, "%d", val);
 	fprintf(fp, "</td><td align=\"left\" class=\"keyentry\">");
 	if (link != NULL) {
@@ -3645,7 +3645,7 @@ static struct ago_optlist visitors_optlist[] = {
 	{ 'K',	"google-keyphrases",	OPT_GOOGLEKEYPHRASES,	AGO_NOARG},
 	{ 'Z',	"google-keyphrases-age", OPT_GOOGLEKEYPHRASESAGE, AGO_NOARG},
 	{ 'X',	"yandex",		OPT_YANDEX,		AGO_NOARG},
-	{ 'V',	"yandex-keyphrases",	OPT_YANDEXKEYPHRASES,	AGO_NOARG},
+	{ '\0',	"yandex-keyphrases",	OPT_YANDEXKEYPHRASES,	AGO_NOARG},
 	{ 'P',	"yandex-keyphrases-age", OPT_YANDEXKEYPHRASESAGE, AGO_NOARG},
         { 'H',  "google-human-language", OPT_GOOGLEHUMANLANGUAGE, AGO_NOARG},
 	{ 'U',	"user-agents",		OPT_USERAGENTS,		AGO_NOARG},
