@@ -2204,6 +2204,7 @@ void om_html_print_header(FILE *fp)
 	fprintf(fp,
 "<html>\n"
 "<head>\n"
+"<title>Visitors Report for %s</title>\n"
 "<style>\n"
 "BODY, TD, B, LI, U, DIV, SPAN {\n"
 "	background-color: #ffffff;\n"
@@ -2324,6 +2325,7 @@ void om_html_print_header(FILE *fp)
 "</style>\n"
 "</head>\n"
 "<body><table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"maintable\">\n"
+, Config_prefix[0].str
 	);
 }
 
@@ -2488,7 +2490,7 @@ void om_html_print_hline(FILE *fp)
 
 void om_html_print_credits(FILE *fp)
 {
-	fprintf(fp, "<tr><td colspan=\"3\" align=\"center\" class=\"credits\">Statistics generated with <a href=\"http://www.hping.org/visitors\">VISITORS Web Log Analyzer</a> version %s\n</td></tr>", VI_VERSION_STR);
+	fprintf(fp, "<tr><td colspan=\"3\" align=\"center\" class=\"credits\">Statistics generated with <a href=\"http://www.hping.org/visitors\">VISITORS Web Log Analyzer</a> version %s<br>for %s\n</td></tr>", VI_VERSION_STR, Config_prefix[0].str);
 }
 
 void om_html_print_report_link(FILE *fp, char *report)
