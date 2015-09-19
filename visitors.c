@@ -1466,12 +1466,14 @@ int vi_process_os(struct vih *vih, char *agent)
 	char *oslist[] = {
 		"Android", NULL,
 		"BlackBerry", NULL,
+		"BB10", "BlackBerry",
 		"MIDP-2.0; U; Adr", "Android",
 		"iPhone", "iOS (iPhone/iPad/iPod)",
 		"iPad", "iOS (iPhone/iPad/iPod)",
 		"iPod", "iOS (iPhone/iPad/iPod)",
 		"Symbian", NULL,
 		"Series 60", "Symbian",
+		"SymbOS", "Symbian",
 		"Windows Phone OS", "Windows Phone",
 		"Windows", NULL,
 		"Win98", "Windows",
@@ -1481,14 +1483,19 @@ int vi_process_os(struct vih *vih, char *agent)
 		"Linux", NULL,
 		"-linux-", "Linux",
 		"Ubuntu", "Linux",
+		"ubuntu", "Linux",
 		"Macintosh", NULL,
 		"Mac_PowerPC", "Macintosh",
 		"Darwin", "Macintosh",
+		"darwin", "Macintosh",
+		"CrOS", "Chrome OS",
 		"SunOS", NULL,
-		"FreeBSD", NULL,
-		"OpenBSD", NULL,
-		"NetBSD", NULL,
+		"FreeBSD", "BSD",
+		"OpenBSD", "BSD",
+		"NetBSD", "BSD",
 		"BEOS", NULL,
+		"Java", NULL,
+		"java", "Java",
 		"", "Unknown",
 		NULL, NULL,
 	};
@@ -1502,6 +1509,25 @@ int vi_process_browsers(struct vih *vih, char *agent)
 	 * send an user agent where there is the string "Gecko"
 	 * so it must be before Gecko. */
 	char *browserslist[] = {
+		"Qwantify", NULL,
+		"Googlebot", "GoogleBot",
+		"googlebot", "GoogleBot",
+		"yandexbot", "YandexBot",
+		"YandexBot", "YandexBot",
+		"Yandex", "YandexBot",
+		"yacybot", "YaCy-Bot",
+		"Sogou", "Sogou.com Bot",
+		"psbot", "Picsearch.com Bot",
+		"sosospider", "Soso.com Bot",
+		"Baiduspider+", "Baidu.com Bot",
+		"Yeti", "Nava.com Bot",
+		"Exabot", NULL,
+		"PageTurner", NULL,
+		"Seekbot", NULL,
+		"SeznamBot", NULL,
+		"tbot-nutch", "Nutch Bot",
+		"startmebot", NULL,
+		"AMZNKAssocBot", "Amazon",
 		"FBReader", NULL,
 		"Moon+ Reader", NULL,
 		"Aldiko", NULL,
@@ -1509,10 +1535,15 @@ int vi_process_browsers(struct vih *vih, char *agent)
 		"EFReader", NULL,
 		"BookReader", NULL,
 		"CoolReader", NULL,
+		"TucanReader", NULL,
 		"Opera", NULL,
 		"UCBrowser", NULL,
 		"Dolphin", NULL,
 		"Dalvik", NULL,
+		"Motorola", NULL,
+		"NativeHost", "Windows Phone WebClient",
+		"YaBrowser", "Yandex.Browser",
+		"SamsungBrowser", NULL,
 		"Chrome", NULL,
 		"Chromium", NULL,
 		"Konqueror", NULL,
@@ -1528,6 +1559,7 @@ int vi_process_browsers(struct vih *vih, char *agent)
 		"MSIE 10", "Explorer 10.x",
 		"MSIE 11", "Explorer 11.x", // Marty was here
 		"MSIE", "Explorer unknown version",
+		"K-Meleon", NULL,
 		"Sunrise", NULL,
 		"Safari", NULL,
 		"Konqueror", NULL,
@@ -1547,11 +1579,15 @@ int vi_process_browsers(struct vih *vih, char *agent)
 		"Tiny Tiny RSS", NULL,
 		"Digg Feed Fetcher", NULL,
 		"FeedDemon", NULL,
+		"Feedfetcher-Google", NULL,
 		"Akregator", NULL,
 		"com.apple.Safari.WebFeedParser", "Safari WebFeedParser",
+		"Page2RSS", NULL,
 		"Windows-RSS-Platform", NULL,
 		"Twitterbot", "Twitter",
+		"facebookexternalhit", "Facebook",
 		"WebCopier", NULL,
+		"HTTrack", NULL,
 		"wget", NULL,
 		"Wget", "wget",
 		"curl", NULL,
@@ -1565,35 +1601,35 @@ int vi_process_browsers(struct vih *vih, char *agent)
 		"Baiduspider", NULL,
 		"Mail.RU_Bot", NULL,
 		"bingbot", "Bing Bot",
+		"BingPreview", "Bing Bot",
+		"DuckDuckGo", NULL,
 		"MJ12bot", NULL,
+		"AhrefsBot", NULL,
+		"XoviBot", NULL,
+		"SemrushBot", NULL,
 		"msnbot", "MSNbot",
-		"Slurp", "Yahoo Slurp",
+		"Slurp", "Yahoo Crawler",
+		"Y!J-ASR", "Yahoo Crawler",
 		"Jeeves", "Ask Jeeves",
+		"CC Metadata Scaper", NULL,
 		"Wayback Machine", NULL,
 		"ia_archiver", "Wayback Machine",
 		"special_archiver", "Wayback Machine",
 		"archive.org_bot", "Wayback Machine",
+		"CCBot", NULL,
 		"ZyBorg", NULL,
 		"asteria", NULL,
 		"contype", "Explorer",
 		"Gigabot", NULL,
 		"Windows-Media-Player", "Windows-MP",
 		"NSPlayer", NULL,
-		"Googlebot", "GoogleBot",
-		"googlebot", "GoogleBot",
-		"yandexbot", "YandexBot",
-		"YandexBot", "YandexBot",
-		"Yandex", "YandexBot",
-		"yacybot", "YaCy-Bot",
-		"Sogou", "Sogou.com Bot",
-		"psbot", "Picsearch.com Bot",
-		"sosospider", "Soso.com Bot",
-		"Baiduspider+", "Baidu.com Bot",
-		"Yeti", "Nava.com Bot",
-		"Exabot", NULL,
-		"Seekbot", NULL,
-		"SeznamBot", NULL,
+		"Apache-HttpClient", NULL,
+		"Jakarta Commons-HttpClient", "Jakarta HttpClient",
+		"libwww-perl", NULL,
 		"APT-HTTP", "Apt",
+		"apt-cacher", NULL,
+		"Apt-Cacher-NG", NULL,
+		"yum", NULL,
 		"git", "Git",
 		"bot", "Unknown Bot",
 		"Bot", "Unknown Bot",
@@ -2204,6 +2240,7 @@ void om_html_print_header(FILE *fp)
 	fprintf(fp,
 "<html>\n"
 "<head>\n"
+"<title>Visitors Report for %s</title>\n"
 "<style>\n"
 "BODY, TD, B, LI, U, DIV, SPAN {\n"
 "	background-color: #ffffff;\n"
@@ -2324,6 +2361,7 @@ void om_html_print_header(FILE *fp)
 "</style>\n"
 "</head>\n"
 "<body><table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" class=\"maintable\">\n"
+, Config_prefix[0].str
 	);
 }
 
@@ -2488,7 +2526,7 @@ void om_html_print_hline(FILE *fp)
 
 void om_html_print_credits(FILE *fp)
 {
-	fprintf(fp, "<tr><td colspan=\"3\" align=\"center\" class=\"credits\">Statistics generated with <a href=\"http://www.hping.org/visitors\">VISITORS Web Log Analyzer</a> version %s\n</td></tr>", VI_VERSION_STR);
+	fprintf(fp, "<tr><td colspan=\"3\" align=\"center\" class=\"credits\">Statistics generated with <a href=\"http://www.hping.org/visitors\">VISITORS Web Log Analyzer</a> version %s<br>for %s\n</td></tr>", VI_VERSION_STR, Config_prefix[0].str);
 }
 
 void om_html_print_report_link(FILE *fp, char *report)
