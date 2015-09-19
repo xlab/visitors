@@ -3,6 +3,7 @@
 Changeset:
 * Support for Yandex search engine;
 * Tweaked limits on keywords (20 to 100).
+* Improved OS and browser detection
 
 -----------------------
 
